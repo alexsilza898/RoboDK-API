@@ -34,7 +34,6 @@
 
 import struct
 import robodk
-from warnings import warn
 import sys  # Only used to detect python version using sys.version_info
 import os
 import time
@@ -416,12 +415,14 @@ class LicenseError(Exception):
 
 
 def RoboDKInstallFound():
+    # type: () -> bool
     """Check if RoboDK is installed"""
     path_install = getPathRoboDK()
     return os.path.exists(path_install)
 
 
 def getPathRoboDK():
+    # type: () -> str
     """RoboDK's executable/binary file"""
     from sys import platform as _platform
     if _platform == "linux" or _platform == "linux2":
@@ -465,6 +466,7 @@ def getPathRoboDK():
 
 
 def getPathIcon():
+    # type: () -> str
     iconpath = getPathRoboDK()
     if iconpath.endswith(".exe"):
         iconpath = iconpath[:-4]
@@ -473,6 +475,7 @@ def getPathIcon():
 
 
 def import_install(module_name, pip_name=None, rdk=None):
+    # type: (str, str, Robolink) -> None
     """Import a module by first installing it if the corresponding package is not available. If the module name does not match the pip install command, provide the pip_name for install purposes.
     Optionally, you can pass the RoboDK API Robolink object to see install progress in RoboDK's status bar.
 
@@ -535,6 +538,7 @@ def import_install(module_name, pip_name=None, rdk=None):
 
 
 def EmbedWindow(window_name, docked_name=None, size_w=-1, size_h=-1, pid=0, area_add=1, area_allowed=15, timeout=500, port=None, args=[]):
+    # type: (str, str, int, int, int, int, int, int, int, list) -> None
     """Embed a window from a separate process in RoboDK as a docked window. Returns True if successful.
 
     :param str window_name: The name of the window currently open. Make sure the window name is unique and it is a top level window
@@ -710,6 +714,7 @@ class Robolink:
 
     #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     def _setTimeout(self, timeout_sec=30):
+        # type: (int) -> None
         """Set the communication timeout (in seconds)."""
         # Change the default timeout here, in seconds:
         with self._lock:
@@ -717,6 +722,7 @@ class Robolink:
             self.COM.settimeout(self.TIMEOUT)
 
     def _is_connected(self):
+        # type: () -> int
         """Returns 1 if connection is valid, returns 0 if connection is invalid"""
         #with self._lock:
         if not self.COM: return 0
@@ -731,12 +737,14 @@ class Robolink:
         return connected
 
     def _check_connection(self):
+        # type: () -> None
         """If we are not connected it will attempt a connection, if it fails, it will throw an error"""
         if not self._is_connected() and self.Connect() < 1:
             raise Exception('Unable to connect')
         #To do: Clear input buffer.
 
     def _check_status(self):
+        # type: () -> int
         """This procedure checks the status of the connection"""
         status = self._rec_int()
         if status == 0:
@@ -786,6 +794,7 @@ class Robolink:
         return status
 
     def _check_color(self, color):
+        # type: (list) -> list
         """Formats the color in a vector of size 4x1 and ranges [0,1]"""
         if not isinstance(color, list) or len(color) < 3 or len(color) > 4:
             raise Exception('The color vector must be a list of 3 or 4 values')
@@ -796,6 +805,7 @@ class Robolink:
         return color
 
     def _send_line(self, string=None):
+        # type: (str) -> None
         """Sends a string of characters with a \\n"""
         string = string.replace('\n', '<br>')
         if sys.version_info[0] < 3:
@@ -804,6 +814,7 @@ class Robolink:
             self.COM.send(bytes(string + '\n', 'utf-8'))  # Python 3.x only
 
     def _rec_line(self):
+        # type: () -> str
         """Receives a string. It reads until if finds LF (\\n)"""
         string = b''
         chari = self.COM.recv(1)
@@ -819,6 +830,7 @@ class Robolink:
         #return str(string) # python 2 and python 3 compatible
 
     def _send_item(self, item):
+        # type: (...) -> None
         """Sends an item pointer"""
         if isinstance(item, Item):
             self.COM.send(struct.pack('>Q', item.item))  #q=unsigned long long (64 bits), d=float64
@@ -828,6 +840,7 @@ class Robolink:
         self.COM.send(struct.pack('>Q', item))  #q=unsigned long long (64 bits), d=float64
 
     def _rec_item(self):
+        # type () -> robolink.Item
         """Receives an item pointer"""
         buffer = self.COM.recv(8)
         item = struct.unpack('>Q', buffer)  #q=unsigned long long (64 bits), d=float64
@@ -836,6 +849,7 @@ class Robolink:
         return Item(self, item[0], itemtype[0])
 
     def _send_bytes(self, data):
+        # type: (str | bytes) -> None
         """Sends a byte array"""
         if isinstance(data, str):
             data = bytes(data, 'utf-8')
@@ -846,6 +860,7 @@ class Robolink:
         self.COM.send(data)
 
     def _rec_bytes(self):
+        # type: () -> bytes
         """Receives a byte array"""
         buffer = self.COM.recv(4)
         bytes_len = struct.unpack('>I', buffer)[0]  #q=unsigned long long (64 bits), d=float64
@@ -867,6 +882,7 @@ class Robolink:
         return ptr_h[0]  #return ptr_h
 
     def _send_pose(self, pose):
+        # type: (robodk.Mat) -> None
         """Sends a pose (4x4 matrix)"""
         if not pose.isHomogeneous():
             print("Warning: pose is not homogeneous!")
@@ -878,6 +894,7 @@ class Robolink:
         self.COM.send(posebytes)
 
     def _rec_pose(self):
+        # type: () -> robodk.Mat
         """Receives a pose (4x4 matrix)"""
         posebytes = self.COM.recv(16 * 8)
         posenums = struct.unpack('>16d', posebytes)
@@ -890,6 +907,7 @@ class Robolink:
         return pose
 
     def _send_xyz(self, pos):
+        # type: (list[float]) -> None
         """Sends an xyz vector"""
         posbytes = b''
         for i in range(3):
@@ -897,6 +915,7 @@ class Robolink:
         self.COM.send(posbytes)
 
     def _rec_xyz(self):
+        # type: () -> (list[float])
         """Receives an xyz vector"""
         posbytes = self.COM.recv(3 * 8)
         posnums = struct.unpack('>3d', posbytes)
@@ -906,6 +925,7 @@ class Robolink:
         return pos
 
     def _send_int(self, num):
+        # type: (float | int) -> None
         """Sends an int (32 bits)"""
         if isinstance(num, float):
             num = round(num)
@@ -914,12 +934,14 @@ class Robolink:
         self.COM.send(struct.pack('>i', num))
 
     def _rec_int(self):
+        # type: () -> int
         """Receives an int (32 bits)"""
         buffer = self.COM.recv(4)
         num = struct.unpack('>i', buffer)
         return num[0]
 
     def _send_array(self, values):
+        # type: (list[float] | list[int] | robodk.Mat) -> int
         """Sends an array of doubles"""
         if not isinstance(values, list):  #if it is a Mat() with joints
             values = (values.tr()).rows[0]
@@ -932,6 +954,7 @@ class Robolink:
             self.COM.send(buffer)
 
     def _rec_array(self):
+        # type: () -> robodk.Mat
         """Receives an array of doubles"""
         nvalues = self._rec_int()
         if nvalues > 0:
@@ -943,6 +966,7 @@ class Robolink:
         return robodk.Mat(values)
 
     def _send_matrix(self, mat):
+        # type: (list[float] | list[int] | robodk.Mat) -> None
         """Sends a 2 dimensional matrix (nxm)"""
         if mat is None:
             self._send_int(0)
@@ -960,6 +984,7 @@ class Robolink:
             self.COM.send(matbytes)
 
     def _rec_matrix(self):
+        # type: () -> robodk.Mat
         """Receives a 2 dimensional matrix (nxm)"""
         size1 = self._rec_int()
         size2 = self._rec_int()
@@ -1019,6 +1044,7 @@ class Robolink:
                 self.COM.settimeout(self.TIMEOUT)
 
     def MoveC(self, target1, target2, itemrobot, blocking=True):
+        # type: ((... | list | robodk.Mat), (... | list | robodk.Mat), ..., bool) -> None
         """Performs a circular movement. Use robot.MoveC instead."""
         with self._lock:
             #self._check_connection();
@@ -1070,6 +1096,7 @@ class Robolink:
 
     #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     def __init__(self, robodk_ip='localhost', port=None, args=[], robodk_path=None, close_std_out=False):
+        # type: (str, int, list, str, bool) -> None
         """A connection is attempted upon creation of the object
         In  1 (optional) : robodk_ip -> IP of the RoboDK API server (default='localhost')
         In  2 (optional) : port -> Port of the RoboDK API server (default=None)
@@ -1136,6 +1163,7 @@ class Robolink:
         self.Connect()
 
     def _verify_connection(self):
+        # type: () -> (bool | int)
         """Verify that we are connected to the RoboDK API server"""
         # Imortant! this should not thread locked
         use_new_version = True
@@ -1160,6 +1188,7 @@ class Robolink:
             return ok
 
     def _require_build(self, build_required):
+        # type: (int) -> bool
         if self.BUILD == 0:
             # unknown build number. Use new API hello command
             return True
@@ -1169,17 +1198,20 @@ class Robolink:
         return True
 
     def Disconnect(self):
+        # type: () -> None
         """Stops the communication with RoboDK. If setRunMode is set to RUNMODE_MAKE_ROBOTPROG for offline programming, any programs pending will be generated."""
         with self._lock:
             self.COM.close()
 
     def Finish(self):
+        # type: () -> None
         """Stops the communication with RoboDK. If setRunMode is set to RUNMODE_MAKE_ROBOTPROG for offline programming, any programs pending will be generated.
 
         .. seealso:: :func:`~robolink.Robolink.setRunMode`, :func:`~robolink.Robolink.AddProgram`, :func:`~robolink.Robolink.ProgramStart`"""
         self.Disconnect()
 
     def NewLink(self):
+        # type: () -> None
         """Reconnect the API using a different communication link."""
         try:
             #if True:
@@ -1204,6 +1236,7 @@ class Robolink:
             print("Failed to reconnect (2)")
 
     def Connect(self):
+        # type: () -> int
         """Establish a connection with RoboDK. If RoboDK is not running it will attempt to start RoboDK from the default installation path (otherwise APPLICATION_DIR must be set properly).
         If the connection succeeds it returns 1, otherwise it returns 0"""
         def start_robodk(command):
@@ -1335,6 +1368,7 @@ class Robolink:
     #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     # public methods
     def Item(self, name, itemtype=None):
+        # type: (str, int) -> ...
         """Returns an item by its name. If there is no exact match it will return the last closest match.
         Specify what type of item you are looking for with itemtype. This is useful if 2 items have the same name but different type.
         (check variables ITEM_TYPE_*)
@@ -1387,6 +1421,7 @@ class Robolink:
             return item
 
     def ItemList(self, filter=None, list_names=False):
+        # type: (int, bool) -> list
         """Returns a list of items (list of name or pointers) of all available items in the currently open station of RoboDK.
 
         :param int filter: (optional) Filter the list by a specific item type (ITEM_TYPE_*). For example: RDK.ItemList(filter = ITEM_TYPE_ROBOT)
@@ -1425,6 +1460,7 @@ class Robolink:
             return retlist
 
     def ItemUserPick(self, message="Pick one item", itemtype_or_list=None):
+        # type: (str, int | list) -> ...
         """Shows a RoboDK popup to select one object from the open station.
         An item type can be specified to filter desired items. If no type is specified, all items are selectable.
         (check variables ITEM_TYPE_*)
@@ -1467,6 +1503,7 @@ class Robolink:
             return item
 
     def ShowRoboDK(self):
+        # type: () -> None
         """Show or raise the RoboDK window
 
         .. seealso:: :func:`~robolink.Robolink.setWindowState`"""
@@ -1477,6 +1514,7 @@ class Robolink:
             self._check_status()
 
     def HideRoboDK(self):
+        # type: () -> None
         """Hide the RoboDK window. RoboDK will keep running as a process
 
         .. seealso:: :func:`~robolink.Robolink.setWindowState`"""
@@ -1487,6 +1525,7 @@ class Robolink:
             self._check_status()
 
     def CloseRoboDK(self):
+        # type: () -> None
         """Close RoboDK window and finish RoboDK's execution."""
         with self._lock:
             self._check_connection()
@@ -1495,7 +1534,8 @@ class Robolink:
             self._check_status()
 
     def Version(self):
-        """Close RoboDK window and finish RoboDK's execution."""
+        # type: () -> str
+        """Returns RoboDK version"""
         with self._lock:
             self._check_connection()
             command = 'Version'
@@ -1508,6 +1548,7 @@ class Robolink:
             return ver4
 
     def setWindowState(self, windowstate=WINDOWSTATE_NORMAL):
+        # type: (int) -> None
         """Set the state of the RoboDK window
 
         :param int windowstate: state of the window (WINDOWSTATE_*)
@@ -1534,6 +1575,7 @@ class Robolink:
             self._check_status()
 
     def setFlagsRoboDK(self, flags=FLAG_ROBODK_ALL):
+        # type: (int) -> None
         """Update the RoboDK flags. RoboDK flags allow defining how much access the user has to RoboDK features. Use a FLAG_ROBODK_* variables to set one or more flags.
 
         :param int flags: state of the window (FLAG_ROBODK_*)
@@ -1570,6 +1612,7 @@ class Robolink:
             self._check_status()
 
     def setFlagsItem(self, item, flags=FLAG_ITEM_ALL):
+        # type: (..., int) -> None
         """Update item flags. Item flags allow defining how much access the user has to item-specific features. Use FLAG_ITEM_* flags to set one or more flags.
 
         :param item: item to set (set to 0 to apply to all items)
@@ -1587,6 +1630,7 @@ class Robolink:
             self._check_status()
 
     def getFlagsItem(self, item):
+        # type: (...) -> int
         """Retrieve current item flags. Item flags allow defining how much access the user has to item-specific features. Use FLAG_ITEM_* flags to set one or more flags.
 
         :param item: item to get flags
@@ -1615,6 +1659,7 @@ class Robolink:
             return flags
 
     def ShowMessage(self, message, popup=True):
+        # type: (str, bool) -> None
         """Show a message from the RoboDK window. By default, the message will be a blocking popup. Alternatively, it can be a message displayed at the bottom of RoboDK's main window.
 
         :param str message: message to display
@@ -1638,6 +1683,7 @@ class Robolink:
 
     #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     def Copy(self, item, copy_childs=True):
+        # type: (..., bool) -> None
         """Makes a copy of an item (same as Ctrl+C), which can be pasted (Ctrl+V) using Paste().
 
         :param item: Item to copy to the clipboard
@@ -1667,6 +1713,7 @@ class Robolink:
             self._check_status()
 
     def Paste(self, paste_to=0, paste_times=1):
+        # type: (..., int | ..., int) -> (... | list)
         """Paste the copied item as a dependency of another item (same as Ctrl+V). Paste should be used after Copy(). It returns the newly created item.
 
         :param paste_to: Item to attach the copied item (optional)
@@ -1705,6 +1752,7 @@ class Robolink:
                 return newitem
 
     def AddFile(self, filename, parent=0):
+        # type: (str, int | ...) -> ...
         """Load a file and attach it to parent (if provided). The call returns the newly added :class:`.Item`. If the new file is an object and it is attached to a robot it will be automatically converted to a tool.
 
         :param str filename: any file to load, supported by RoboDK. Supported formats include STL, STEP, IGES, ROBOT, TOOL, RDK,... It is also possible to load supported robot programs, such as SRC (KUKA), SCRIPT (Universal Robots), LS (Fanuc), JBI (Motoman), MOD (ABB), PRG (ABB), ...
@@ -1744,6 +1792,7 @@ class Robolink:
             return newitem
 
     def AddShape(self, triangle_points, add_to=0, override_shapes=False):
+        # type: (list | robodk.Mat, ... | int, bool) -> ...
         """Adds a shape provided triangle coordinates. Triangles must be provided as a list of vertices. A vertex normal can be provided optionally.
 
         :param triangle_points: List of vertices grouped by triangles.
@@ -1773,6 +1822,7 @@ class Robolink:
             return newitem
 
     def AddCurve(self, curve_points, reference_object=0, add_to_ref=False, projection_type=PROJECTION_ALONG_NORMAL_RECALC):
+        # type: (list | robodk.Mat, ... | int, bool, int) -> ...
         """Adds a curve provided point coordinates. The provided points must be a list of vertices. A vertex normal can be provided optionally.
 
         :param curve_points: List of points defining the curve
@@ -1813,6 +1863,7 @@ class Robolink:
             return newitem
 
     def AddPoints(self, points, reference_object=0, add_to_ref=False, projection_type=PROJECTION_ALONG_NORMAL_RECALC):
+        # type: (list | robodk.Mat, ... | int, bool, int) -> ...
         """Adds a list of points to an object. The provided points must be a list of vertices. A vertex normal can be provided optionally.
 
         :param points: list of points or matrix
@@ -1846,6 +1897,7 @@ class Robolink:
             return newitem
 
     def ProjectPoints(self, points, object_project, projection_type=PROJECTION_ALONG_NORMAL_RECALC, timeout=30):
+        # type: (list | robodk.Mat, ... | int, int, int) -> list | robodk.Mat
         """Project a point or a list of points given its coordinates.
         The provided points must be a list of [XYZ] coordinates. Optionally, a vertex normal can be provided [XYZijk].
         It returns the projected points as a list of points (empty matrix if failed).
@@ -1887,6 +1939,7 @@ class Robolink:
             return projected_points
 
     def CloseStation(self):
+        # type: () -> None
         """Closes the current RoboDK station without suggesting to save"""
         with self._lock:
             self._require_build(12938)
@@ -1895,6 +1948,7 @@ class Robolink:
             self._check_status()
 
     def Delete(self, item_list):
+        # type: (... | list) -> None
         """Remove a list of items.
 
         .. seealso:: :func:`~robolink.Item.Delete`, :func:`~robolink.Robolink.CloseStation`
@@ -3527,6 +3581,7 @@ class Robolink:
             return lic_name, lic_cid
 
     def Selection(self):
+        # type: () -> list
         """Return the list of currently selected items
 
         :return: List of items
@@ -5023,9 +5078,9 @@ class Item():
 
         :param joints: robot joints
         :type joints: list of float or :class:`robodk.Mat`
-        :param tool: Optionally provide the tool used to calculate the forward kinematics. If this parameter is ignored it will use the robot flange.
+        :param tool: Optionally provide the tool pose used to calculate the forward kinematics. If this parameter is ignored it will use the robot flange.
         :type tool: :class:`robodk.Mat`
-        :param reference: Optionally provide the reference frame used to calculate the forward kinematics. If this parameter is ignored it will use the robot base frame.
+        :param reference: Optionally provide the reference frame pose used to calculate the forward kinematics. If this parameter is ignored it will use the robot base frame.
         :type reference: :class:`robodk.Mat`
 
         .. seealso:: :func:`~robolink.Item.SolveIK`, :func:`~robolink.Item.SolveIK_All`, :func:`~robolink.Item.JointsConfig`
@@ -5412,6 +5467,7 @@ class Item():
         self.link._moveX(target, self, 1, blocking)
 
     def MoveL(self, target, blocking=True):
+        # type: (Item, Item, bool) -> None
         """Moves a robot to a specific target ("Move Linear" mode). This function waits (blocks) until the robot finishes its movements. This function can also be called on Programs and a new movement instruction will be added at the end of the program.
         If this is used with a program item, a new linear movement instruction will be added to the program.
         Important note when adding new movement instructions to programs: only target items supported, not poses.

@@ -31,16 +31,10 @@
 # --------------------------------------------
 
 import math
-import operator
-import sys
-import unittest
-import time
 
 #----------------------------------------------------
 #--------      Generic file usage     ---------------
-
 import os.path
-import time
 
 
 def searchfiles(pattern='C:\\RoboDK\\Library\\*.rdk'):
@@ -73,6 +67,7 @@ def DateModified(filepath, stringformat=False):
     """Returns the time that a file was modified"""
     time_in_s = os.path.getmtime(filepath)
     if stringformat:
+        import time
         return time.ctime(time_in_s)
     else:
         return time_in_s
@@ -82,6 +77,7 @@ def DateCreated(filepath, stringformat=False):
     """Returns the time that a file was modified"""
     time_in_s = os.path.getctime(filepath)
     if stringformat:
+        import time
         return time.ctime(time_in_s)
     else:
         return time_in_s
@@ -138,6 +134,7 @@ def pause(seconds):
 
     :param pause: time in seconds
     :type pause: float"""
+    import time
     time.sleep(seconds)
 
 
@@ -402,8 +399,8 @@ def tic():
 
 def toc():
     """Read the stopwatch timer"""
-    import time
     if 'TICTOC_START_TIME' in globals():
+        import time
         elapsed = time.time() - TICTOC_START_TIME
         #print("Elapsed time is " + str(elapsed) + " seconds.")
         return elapsed
@@ -1738,7 +1735,6 @@ def RemoveDirFTP(ftp, path):
 def UploadDirFTP(localpath, server_ip, remote_path, username, password):
     """Upload a folder to a robot through FTP recursively"""
     import ftplib
-    import os
     import sys
     main_folder = os.path.basename(os.path.normpath(localpath))
     print("POPUP: <p>Connecting to <strong>%s</strong> using user name <strong>%s</strong> and password ****</p><p>Please wait...</p>" % (server_ip, username))
@@ -1773,6 +1769,7 @@ def UploadDirFTP(localpath, server_ip, remote_path, username, password):
         return False
 
     def uploadThis(path):
+        import os
         files = os.listdir(path)
         os.chdir(path)
         for f in files:
@@ -1803,7 +1800,6 @@ def UploadFileFTP(file_path_name, server_ip, remote_path, username, password):
     filepath = getFileDir(file_path_name)
     filename = getBaseName(file_path_name)
     import ftplib
-    import os
     import sys
     print("POPUP: <p>Connecting to <strong>%s</strong> using user name <strong>%s</strong> and password ****</p><p>Please wait...</p>" % (server_ip, username))
     sys.stdout.flush()
@@ -1850,6 +1846,7 @@ def UploadFileFTP(file_path_name, server_ip, remote_path, username, password):
 def UploadFTP(program, robot_ip, remote_path, ftp_user, ftp_pass, pause_sec=2):
     """Upload a program or a list of programs to the robot through FTP provided the connection parameters"""
     # Iterate through program list if it is a list of files
+    import sys
     if isinstance(program, list):
         if len(program) == 0:
             print('POPUP: Nothing to transfer')
@@ -1867,7 +1864,6 @@ def UploadFTP(program, robot_ip, remote_path, ftp_user, ftp_pass, pause_sec=2):
         sys.stdout.flush()
         return
 
-    import os
     if os.path.isfile(program):
         print('Sending program file %s...' % program)
         UploadFileFTP(program, robot_ip, remote_path, ftp_user, ftp_pass)
@@ -1883,7 +1879,9 @@ def UploadFTP(program, robot_ip, remote_path, ftp_user, ftp_pass, pause_sec=2):
 #------------------------------------------------------
 #--------       TKinter dependencies    ---------------
 _tkinter_available = True
-if sys.version_info[0] < 3:
+
+from sys import version_info
+if version_info[0] < 3:
     # Python 2.X only:
     try:
         import Tkinter as tkinter
