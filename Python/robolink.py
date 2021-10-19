@@ -1,4 +1,4 @@
-# Copyright 2015-2020 - RoboDK Inc. - https://robodk.com/
+# Copyright 2015-2021 - RoboDK Inc. - https://robodk.com/
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
@@ -724,8 +724,8 @@ class Robolink:
     def _is_connected(self):
         # type: () -> int
         """Returns 1 if connection is valid, returns 0 if connection is invalid"""
-        #with self._lock:
-        if not self.COM: return 0
+        if not self.COM:
+            return 0
         connected = 1
         #try:
         #    self.COM.settimeout(0)
@@ -1535,7 +1535,7 @@ class Robolink:
 
     def Version(self):
         # type: () -> str
-        """Returns RoboDK version"""
+        """Return RoboDK's version as a string"""
         with self._lock:
             self._check_connection()
             command = 'Version'
@@ -2248,16 +2248,15 @@ class Robolink:
 
         .. seealso:: :func:`~robolink.Robolink.Item`, :func:`~robolink.Robolink.AddProgram`, :func:`~robolink.Item.Busy`
         """
-        with self._lock:
-            if wait_for_finished:
-                prog_item = self.Item(fcn_param, ITEM_TYPE_PROGRAM)
-                if not prog_item.Valid():
-                    raise Exception('Invalid program %s' % fcn_param)
-                prog_status = prog_item.RunProgram()
-                prog_item.WaitFinished()
-            else:
-                prog_status = self.RunCode(fcn_param, True)
-            return prog_status
+        if wait_for_finished:
+            prog_item = self.Item(fcn_param, ITEM_TYPE_PROGRAM)
+            if not prog_item.Valid():
+                raise Exception('Invalid program %s' % fcn_param)
+            prog_status = prog_item.RunProgram()
+            prog_item.WaitFinished()
+        else:
+            prog_status = self.RunCode(fcn_param, True)
+        return prog_status
 
     def RunCode(self, code, code_is_fcn_call=False):
         """Generate a program call or a customized instruction output in a program.
@@ -2646,6 +2645,8 @@ class Robolink:
         .. seealso:: :func:`~robolink.Robolink.getParam`
         """
         with self._lock:
+            if isinstance(value,Item):
+                value = str(value.item)
             self._check_connection()
             if isinstance(value, bytes):
                 command = 'S_DataParam'
@@ -2800,7 +2801,6 @@ class Robolink:
 
         Tip: use :func:`~robolink.Item.InstructionList` to retrieve the instruction list in RoKiSim format.
         """
-        #with self._lock:
         Item(self, 0).ShowSequence(matrix)
 
     def LaserTracker_Measure(self, estimate=[0, 0, 0], search=False):
@@ -2865,8 +2865,13 @@ class Robolink:
             self._send_xyz(p2abs)
             itempicked = self._rec_item()
             xyz = self._rec_xyz()
-            collision = itempicked.Valid()
             self._check_status()
+
+            # Avoid a deadlock
+            self._lock.release()
+            collision = itempicked.Valid()
+            self._lock.acquire()
+
             return collision, itempicked, xyz
 
     def setPoses(self, items, poses):
@@ -3337,7 +3342,7 @@ class Robolink:
             self._check_status()
             return cam_handle
 
-    def Cam2D_Snapshot(self, file_save_img, cam_handle=0, params=""):
+    def Cam2D_Snapshot(self, file_save_img="", cam_handle=0, params=""):
         """Take a snapshot from a simulated camera view and save it to a file. Returns 1 if success, 0 otherwise.
 
         :param str file_save_img: file path to save. Formats supported include PNG, JPEG, TIFF, ...
@@ -3367,7 +3372,11 @@ class Robolink:
                 self._send_line(file_save_img)
                 self._send_line(params)
                 self.COM.settimeout(3600)
-                success = self._rec_int()
+                if len(file_save_img) == 0:
+                    # If the file name is empty we are expecting a byte array as PNG file
+                    success = self._rec_bytes()
+                else:
+                    success = self._rec_int()
                 self.COM.settimeout(self.TIMEOUT)
 
             self._check_status()
@@ -4007,12 +4016,11 @@ class Item():
                 print("The tool item does not exist!")
                 quit()
         """
-        with self.link._lock:
-            if self.item == 0: return False
-            if check_deleted:
-                return self.Type() >= 0
-
-            return True
+        if self.item == 0:
+            return False
+        if check_deleted:
+            return self.Type() >= 0
+        return True
 
     def setParent(self, parent):
         """Attaches the item to a new parent while maintaining the relative position with its parent.
@@ -6099,15 +6107,15 @@ class Item():
     def customInstruction(self, name, path_run, path_icon="", blocking=1, cmd_run_on_robot=""):
         """Add a custom instruction. This instruction will execute a Python file or an executable file.
 
-        :param name: digital input (string or number)
+        :param name: Name of the instruction
         :type name: str or int
-        :param path_run: path to run (relative to RoboDK/bin folder or absolute path)
+        :param path_run: path of the executable or Python script to run (relative to RoboDK/bin/ folder or absolute path)
         :type path_run: str
-        :param path_icon: icon path (relative to RoboDK/bin folder or absolute path)
+        :param path_icon: instruction image/icon path (relative to RoboDK/bin/ folder or absolute path)
         :type path_icon: str
         :param blocking: 1 if blocking, 0 if it is a non blocking executable trigger
         :type blocking: int
-        :param cmd_run_on_robot: Command to run through the driver when connected to the robot
+        :param cmd_run_on_robot: Command to send to the driver when connected to the robot
         :type cmd_run_on_robot: str
 
         .. seealso:: :func:`~robolink.Robolink.AddProgram`
@@ -6532,6 +6540,8 @@ class Item():
                 self.link._send_bytes(value)
                 self.link._check_status()
                 return True
+            elif isinstance(value,Item):
+                value = str(value.item)
             else:
                 value = str(value)
             value = value.replace('\n', '<br>')
@@ -6567,6 +6577,9 @@ if __name__ == "__main__":
         ref = RDK.AddFrame("Ref")
         prm = ''
         c = RDK.Cam2D_Add(ref, prm)
+        b = RDK.Cam2D_Snapshot("", c)
+        with open("./Test.png", 'wb') as fid:
+            fid.write(b)
 
     def TestCollision():
         RDK = Robolink()
