@@ -38,6 +38,26 @@ import sys  # Only used to detect python version using sys.version_info
 import os
 import time
 import threading
+from typing import List, Optional, Union, Any, Type
+
+
+def deprecated(func):
+    # https://stackoverflow.com/questions/2536307/decorators-in-the-python-standard-lib-deprecated-specifically
+    import warnings
+    import functools
+    """This is a decorator which can be used to mark functions
+    as deprecated. It will result in a warning being emitted
+    when the function is used."""
+
+    @functools.wraps(func)
+    def new_func(*args, **kwargs):
+        warnings.simplefilter('always', DeprecationWarning)  # turn off filter
+        warnings.warn("Call to deprecated function {}.".format(func.__name__), category=DeprecationWarning, stacklevel=2)
+        warnings.simplefilter('default', DeprecationWarning)  # reset filter
+        return func(*args, **kwargs)
+
+    return new_func
+
 
 # Tree item types
 ITEM_TYPE_STATION = 1
@@ -538,7 +558,7 @@ def import_install(module_name, pip_name=None, rdk=None):
 
 
 def EmbedWindow(window_name, docked_name=None, size_w=-1, size_h=-1, pid=0, area_add=1, area_allowed=15, timeout=500, port=None, args=[]):
-    # type: (str, str, int, int, int, int, int, int, int, list) -> None
+    # type: (str, Optional[str], Optional[int], Optional[int], Optional[int], Optional[int], Optional[int], Optional[int], Optional[int], Optional[List[Any]]) -> None
     """Embed a window from a separate process in RoboDK as a docked window. Returns True if successful.
 
     :param str window_name: The name of the window currently open. Make sure the window name is unique and it is a top level window
@@ -1239,6 +1259,7 @@ class Robolink:
         # type: () -> int
         """Establish a connection with RoboDK. If RoboDK is not running it will attempt to start RoboDK from the default installation path (otherwise APPLICATION_DIR must be set properly).
         If the connection succeeds it returns 1, otherwise it returns 0"""
+
         def start_robodk(command):
             print('Starting %s\n' % self.APPLICATION_DIR)
             import subprocess
@@ -1297,7 +1318,7 @@ class Robolink:
                     p.stdout.close()
                 else:
                     #import threading
-                    t = threading.Thread(target=output_reader, args=(p, ))
+                    t = threading.Thread(target=output_reader, args=(p,))
                     t.start()
 
             return True
@@ -1367,8 +1388,14 @@ class Robolink:
 
     #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     # public methods
+
+    @deprecated
     def Item(self, name, itemtype=None):
-        # type: (str, int) -> ...
+        # type: (str, Optional[int]) -> ...
+        return self.getItem(name, itemtype)
+
+    def getItem(self, name, itemtype=None):
+        # type: (str, Optional[int]) -> ...
         """Returns an item by its name. If there is no exact match it will return the last closest match.
         Specify what type of item you are looking for with itemtype. This is useful if 2 items have the same name but different type.
         (check variables ITEM_TYPE_*)
@@ -2645,7 +2672,7 @@ class Robolink:
         .. seealso:: :func:`~robolink.Robolink.getParam`
         """
         with self._lock:
-            if isinstance(value,Item):
+            if isinstance(value, Item):
                 value = str(value.item)
             self._check_connection()
             if isinstance(value, bytes):
@@ -3834,7 +3861,7 @@ class Robolink:
             return result > 0
 
 
-class Item():
+class Item:
     """The Item class represents an item in RoboDK station. An item can be a robot, a frame, a tool, an object, a target, ... any item visible in the station tree.
     An item can also be seen as a node where other items can be attached to (child items).
     Every item has one parent item/node and can have one or more child items/nodes.
@@ -3856,6 +3883,7 @@ class Item():
             robot.setPoseTool(tool)
             robot.MoveJ(target)             # Move the robot to the target using the selected reference frame
     """
+
     def __init__(self, link, ptr_item=0, itemtype=-1):
 
         self.link = link  # it is recommended to keep the link as a reference and not a duplicate (otherwise it will establish a new connection at every call)
@@ -6540,7 +6568,7 @@ class Item():
                 self.link._send_bytes(value)
                 self.link._check_status()
                 return True
-            elif isinstance(value,Item):
+            elif isinstance(value, Item):
                 value = str(value.item)
             else:
                 value = str(value)
