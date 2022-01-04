@@ -152,22 +152,22 @@ def sqrt(value):
 
 
 def sin(value):
-    """Returns the sinus of an angle in radians"""
+    """Returns the sine of an angle in radians"""
     return math.sin(value)
 
 
 def cos(value):
-    """Returns the cosinus of an angle in radians"""
+    """Returns the cosine of an angle in radians"""
     return math.cos(value)
 
 
 def asin(value):
-    """Returns the arc sinus in radians"""
+    """Returns the arcsine in radians"""
     return math.asin(value)
 
 
 def acos(value):
-    """Returns the arc cosinus in radians"""
+    """Returns the arccosine in radians"""
     return math.acos(value)
 
 
